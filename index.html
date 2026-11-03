@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daily Feed: news and remote jobs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f2f5f3;--surface:#fff;--ink:#17262b;--muted:#5d6f74;--line:#d7dfdc;--accent:#0f766e;--job:#b45309;--chip:#e3ece9}
+@media (prefers-color-scheme:dark){:root{--bg:#10191c;--surface:#172226;--ink:#e8f0ee;--muted:#93a7ab;--line:#26363b;--accent:#4fd1c0;--job:#f0b35a;--chip:#1f2f34}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Bricolage Grotesque",system-ui,sans-serif;line-height:1.45}
+main{max-width:760px;margin:0 auto;padding:28px 16px 60px}
+h1{font-size:clamp(2.2rem,8vw,3.4rem);line-height:1;margin:0 0 6px;font-weight:800;letter-spacing:-.03em}
+.sub{color:var(--muted);margin:0 0 22px;font-size:.95rem}
+.bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.tabs{display:flex;background:var(--chip);border-radius:999px;padding:4px}
+.tabs button{border:0;background:none;color:var(--muted);font:inherit;font-weight:600;padding:8px 18px;border-radius:999px;cursor:pointer}
+.tabs button[aria-selected=true]{background:var(--surface);color:var(--ink)}
+input{flex:1;min-width:150px;font:inherit;padding:10px 16px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink)}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+ul{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+li{padding:14px 16px;border-top:1px solid var(--line)}
+li:first-child{border-top:0}
+li a{color:var(--ink);text-decoration:none;font-weight:600;font-size:1.02rem}
+li a:hover{color:var(--accent);text-decoration:underline}
+.meta{color:var(--muted);font-size:.85rem;margin-top:3px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.tag{background:var(--chip);border-radius:999px;padding:1px 9px;font-size:.78rem}
+.pts{color:var(--accent);font-weight:600}
+.co{color:var(--job);font-weight:600}
+.empty{padding:28px 16px;color:var(--muted);text-align:center}
+</style>
+</head>
+<body>
+<main>
+  <h1>Daily Feed</h1>
+  <p class="sub" id="updated">Loading…</p>
+  <div class="bar">
+    <div class="tabs" role="tablist">
+      <button role="tab" id="t-news" aria-selected="true">News</button>
+      <button role="tab" id="t-jobs" aria-selected="false">Jobs</button>
+    </div>
+    <input id="q" type="search" placeholder="Search" aria-label="Search">
+  </div>
+  <ul id="list"></ul>
+  <p class="sub" style="margin-top:16px">News from <a href="https://news.ycombinator.com" target="_blank" rel="noopener">Hacker News</a>. Jobs from <a href="https://remoteok.com" target="_blank" rel="noopener">Remote OK</a>.</p>
+</main>
+<script>
+const state = { tab: "news", q: "", data: { news: [], jobs: [] } };
+const list = document.getElementById("list");
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+function row(item, isJob) {
+  const li = el("li");
+  const a = el("a", "", item.title);
+  a.href = item.url; a.target = "_blank"; a.rel = "noopener";
+  li.append(a);
+  const meta = el("div", "meta");
+  if (isJob) {
+    meta.append(el("span", "co", item.company), el("span", "", item.location));
+    item.tags.forEach(t => meta.append(el("span", "tag", t)));
+    if (item.date) meta.append(el("span", "", item.date));
+  } else {
+    meta.append(el("span", "pts", item.points + " points"), el("span", "", item.site));
+  }
+  li.append(meta);
+  return li;
+}
+
+function render() {
+  const isJob = state.tab === "jobs";
+  const q = state.q.toLowerCase();
+  const items = state.data[state.tab].filter(i =>
+    JSON.stringify(i).toLowerCase().includes(q));
+  list.replaceChildren();
+  if (!items.length) {
+    list.append(el("li", "empty", state.data[state.tab].length
+      ? "Nothing matches your search."
+      : "No data yet. Run the “Update data” workflow on GitHub."));
+    return;
+  }
+  items.forEach(i => list.append(row(i, isJob)));
+}
+
+["news", "jobs"].forEach(t => {
+  document.getElementById("t-" + t).onclick = () => {
+    state.tab = t;
+    ["news", "jobs"].forEach(x =>
+      document.getElementById("t-" + x).setAttribute("aria-selected", x === t));
+    render();
+  };
+});
+document.getElementById("q").oninput = e => { state.q = e.target.value; render(); };
+
+fetch("data.json")
+  .then(r => r.json())
+  .then(d => {
+    state.data = d;
+    document.getElementById("updated").textContent =
+      "Last updated " + new Date(d.updated).toLocaleString();
+    render();
+  })
+  .catch(() => {
+    document.getElementById("updated").textContent = "Data not found yet.";
+    render();
+  });
+</script>
+</body>
+</html>
